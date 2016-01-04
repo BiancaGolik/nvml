@@ -74,9 +74,7 @@ rtree_delete_subtree(rtree_t *rtree, void **node, unsigned level)
 				rtree_delete_subtree(rtree, child, level + 1);
 		}
 	}
-
-	if (rtree->dalloc)
-		rtree->dalloc(rtree->pool, node);
+	rtree->dalloc(rtree->pool, node);
 }
 
 void
@@ -84,10 +82,7 @@ rtree_delete(rtree_t *rtree)
 {
 
 	rtree_delete_subtree(rtree, rtree->root, 0);
-	if (rtree->dalloc)
-		rtree->dalloc(rtree->pool, rtree);
-
-	malloc_mutex_destroy(&rtree->mutex);
+	rtree->dalloc(rtree->pool, rtree);
 }
 
 void

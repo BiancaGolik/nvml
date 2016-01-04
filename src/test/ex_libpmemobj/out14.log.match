@@ -14,14 +14,6 @@ nbytes: 0
 offset: 0
 appendv: Hello:World!:bar:foo
 nbytes: 0
-offset: 17
+offset: 0
 walk
-log contains:
-Hello
-log contains:
-World!
-log contains:
-bar
-log contains:
-foo
 rewind

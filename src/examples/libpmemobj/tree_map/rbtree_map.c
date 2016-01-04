@@ -219,8 +219,6 @@ rbtree_map_insert_bst(TOID(struct rbtree_map) map, TOID(struct tree_map_node) n)
 	}
 
 	TX_SET(n, parent, parent);
-
-	pmemobj_tx_add_range_direct(dst, sizeof (*dst));
 	*dst = n;
 }
 

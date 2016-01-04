@@ -132,6 +132,7 @@ void pool_destroy(pool_t *pool);
 extern malloc_mutex_t	pools_lock;
 extern malloc_mutex_t	pool_base_lock;
 
+bool pool_boot();
 void pool_prefork();
 void pool_postfork_parent();
 void pool_postfork_child();

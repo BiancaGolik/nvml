@@ -31,7 +31,7 @@
 # src/Makefile.inc -- common Makefile rules for NVM library
 #
 
-TOP := $(dir $(lastword $(MAKEFILE_LIST)))..
+TOP := $(dir $(lastword $(MAKEFILE_LIST)))/..
 
 LN = ln
 OBJCOPY = objcopy
@@ -42,6 +42,3 @@ CSTYLE = $(TOP)/utils/cstyle -pP
 
 check_flag = $(shell echo "int main(){return 0;}" |\
 	$(CC) $(CFLAGS) $(1) -x c -o /dev/null - 2>/dev/null && echo y || echo n)
-
-check_Wconversion = $(shell echo "long int random(void); char test(void); char test(void){char a = 0; char b = 'a'; char ret = random() == 1 ? a : b; return ret;}" |\
-	$(CC) -c $(CFLAGS) -Wconversion -x c -o /dev/null - 2>/dev/null && echo y || echo n)

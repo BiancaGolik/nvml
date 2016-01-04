@@ -859,6 +859,8 @@ malloc_init_hard(void)
 
 	arena_boot();
 
+	pool_boot();
+
 	/* Initialize allocation counters before any allocations can occur. */
 	if (config_stats && thread_allocated_tsd_boot()) {
 		malloc_mutex_unlock(&init_lock);

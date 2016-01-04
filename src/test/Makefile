@@ -96,7 +96,6 @@ OBJ_TESTS = \
        obj_recreate\
        obj_redo_log\
        obj_store\
-       obj_toid\
        obj_tx_alloc\
        obj_tx_add_range\
        obj_tx_add_range_direct\
@@ -107,7 +106,7 @@ OBJ_TESTS = \
        obj_tx_realloc\
        obj_tx_strdup\
        obj_pool_lookup\
-       obj_first_next
+       obj_first
 
 OTHER_TESTS = \
        arch_flags\

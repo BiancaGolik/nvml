@@ -33,13 +33,14 @@
 #
 # src/benchmarks/Makefile -- build all benchmarks
 #
-TOP := $(dir $(lastword $(MAKEFILE_LIST)))../..
-include $(TOP)/src/common.inc
+OBJCOPY=objcopy
 
 vpath %.c ../examples/libpmemobj/tree_map
 vpath %.c ../examples/libpmemobj/map
 vpath %.c ../examples/libpmemobj/hashmap
 
+TOP := $(dir $(lastword $(MAKEFILE_LIST)))/../..
+include $(TOP)/src/common.inc
 
 vpath %.c ../libpmemobj
 vpath %.c ../common

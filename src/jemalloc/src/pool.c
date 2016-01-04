@@ -1,31 +1,37 @@
 #define	JEMALLOC_POOL_C_
 #include "jemalloc/internal/jemalloc_internal.h"
 
-malloc_mutex_t	pool_base_lock = MALLOC_MUTEX_INITIALIZER;
-malloc_mutex_t	pools_lock = MALLOC_MUTEX_INITIALIZER;
+malloc_mutex_t	pool_base_lock;
+malloc_mutex_t	pools_lock;
 
 /* Initialize pool and create its base arena. */
 bool pool_new(pool_t *pool, unsigned pool_id)
 {
 	pool->pool_id = pool_id;
 
-	if (malloc_mutex_init(&pool->memory_range_mtx))
+	if (malloc_mutex_init(&pool->memory_range_mtx)) {
 		return (true);
+	}
 
-	if (malloc_rwlock_init(&pool->arenas_lock))
+	if (malloc_rwlock_init(&pool->arenas_lock)) {
 		return (true);
+	}
 
-	if (base_boot(pool))
+	if (base_boot(pool)) {
 		return (true);
+	}
 
-	if (chunk_boot(pool))
+	if (chunk_boot(pool)) {
 		return (true);
+	}
 
-	if (huge_boot(pool))
+	if (huge_boot(pool)) {
 		return (true);
+	}
 
-	if (pools_shared_data_create())
+	if (pools_shared_data_create()) {
 		return (true);
+	}
 
 	pool->stats_cactive = 0;
 	pool->ctl_stats_active = 0;
@@ -49,8 +55,9 @@ bool pool_new(pool_t *pool, unsigned pool_id)
 	pool->arenas = (arena_t **)base_calloc(pool, sizeof(arena_t *),
 		pool->narenas_total);
 
-	if (pool->arenas == NULL)
+	if (pool->arenas == NULL) {
 		return (true);
+	}
 
 	arenas_extend(pool, 0);
 
@@ -60,14 +67,10 @@ bool pool_new(pool_t *pool, unsigned pool_id)
 /* Release the arenas associated with a pool. */
 void pool_destroy(pool_t *pool)
 {
-	int i, j;
+	int i;
 	for (i = 0; i < pool->narenas_total; ++i) {
 		if (pool->arenas[i] != NULL) {
-			arena_t *arena = pool->arenas[i];
-			arena_purge_all(arena);
-			for (j = 0; j < NBINS; j++)
-				malloc_mutex_destroy(&arena->bins[j].lock);
-			malloc_mutex_destroy(&arena->lock);
+			arena_purge_all(pool->arenas[i]);
 		}
 	}
 	/*
@@ -76,16 +79,20 @@ void pool_destroy(pool_t *pool)
 	 * after being deleted.
 	 */
 	pool->pool_id = UINT_MAX;
-
-	if (pool->chunks_rtree)
-		rtree_delete(pool->chunks_rtree);
-
-	malloc_mutex_destroy(&pool->memory_range_mtx);
-	malloc_mutex_destroy(&pool->base_mtx);
-	malloc_mutex_destroy(&pool->base_node_mtx);
-	malloc_mutex_destroy(&pool->chunks_mtx);
-	malloc_mutex_destroy(&pool->huge_mtx);
 	malloc_rwlock_destroy(&pool->arenas_lock);
+}
+
+bool pool_boot()
+{
+	if (malloc_mutex_init(&pools_lock)) {
+		return (true);
+	}
+
+	if (malloc_mutex_init(&pool_base_lock)) {
+		return (true);
+	}
+
+	return (false);
 }
 
 void pool_prefork()

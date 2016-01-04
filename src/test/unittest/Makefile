@@ -34,7 +34,7 @@
 # src/test/unittest/Makefile -- build unittest support library
 #
 
-TOP := $(dir $(lastword $(MAKEFILE_LIST)))../../..
+TOP := $(dir $(lastword $(MAKEFILE_LIST)))/../../..
 include $(TOP)/src/common.inc
 
 TARGET = libut.a
@@ -50,9 +50,7 @@ CFLAGS += -Wunused-macros
 CFLAGS += -Wmissing-field-initializers
 CFLAGS += -Wsign-conversion
 CFLAGS += -Wsign-compare
-ifeq ($(call check_Wconversion), y)
-CFLAGS += -Wconversion
-endif
+#CFLAGS += -Wconversion
 CFLAGS += -pthread
 CFLAGS += -fno-common
 CFLAGS += $(EXTRA_CFLAGS)

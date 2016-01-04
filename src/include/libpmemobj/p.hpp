@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2015, Intel Corporation
+ * Copyright (c) 2014-2015, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,24 +31,49 @@
  */
 
 /*
- * pmalloc.h -- internal definitions for persistent malloc
+ * p.hpp -- resides on pmem property template
  */
 
-int heap_boot(PMEMobjpool *pop);
-int heap_init(PMEMobjpool *pop);
-void heap_vg_open(PMEMobjpool *pop);
-int heap_cleanup(PMEMobjpool *pop);
-int heap_check(PMEMobjpool *pop);
+#ifndef P_HPP
+#define P_HPP
 
-int pmalloc(PMEMobjpool *pop, uint64_t *off, size_t size, uint64_t data_off);
-int pmalloc_construct(PMEMobjpool *pop, uint64_t *off, size_t size,
-	void (*constructor)(PMEMobjpool *pop, void *ptr, void *arg), void *arg,
-	uint64_t data_off);
+#include <memory>
+#include "libpmemobj.h"
 
-int prealloc(PMEMobjpool *pop, uint64_t *off, size_t size, uint64_t data_off);
-int prealloc_construct(PMEMobjpool *pop, uint64_t *off, size_t size,
-	void (*constructor)(PMEMobjpool *pop, void *ptr, void *arg), void *arg,
-	uint64_t data_off);
+#include "libpmemobj/detail/specialization.hpp"
 
-size_t pmalloc_usable_size(PMEMobjpool *pop, uint64_t off);
-int pfree(PMEMobjpool *pop, uint64_t *off, uint64_t data_off);
+template<typename T>
+class p
+{
+	typedef p<T> this_type;
+public:
+	p(T const & _val) noexcept : val(_val)
+	{
+	}
+
+	p() = default;
+
+	p & operator=(p const &rhs) noexcept
+	{
+		if (pmemobj_tx_stage() == TX_STAGE_WORK)
+			pmemobj_tx_add_range_direct(this, sizeof(T));
+
+		this_type(rhs).swap(*this);
+
+		return *this;
+	}
+
+	operator T() const noexcept
+	{
+		return val;
+	}
+
+	void swap(p &other) noexcept
+	{
+		std::swap(val, other.val);
+	}
+private:
+	T val;
+};
+
+#endif /* P_HPP */

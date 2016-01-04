@@ -31,24 +31,94 @@
  */
 
 /*
- * pmalloc.h -- internal definitions for persistent malloc
+ * stl.cpp -- example usage of stl c++ bindings
  */
+#include <libpmemobj.hpp>
 
-int heap_boot(PMEMobjpool *pop);
-int heap_init(PMEMobjpool *pop);
-void heap_vg_open(PMEMobjpool *pop);
-int heap_cleanup(PMEMobjpool *pop);
-int heap_check(PMEMobjpool *pop);
+#define	LAYOUT_NAME "stl"
 
-int pmalloc(PMEMobjpool *pop, uint64_t *off, size_t size, uint64_t data_off);
-int pmalloc_construct(PMEMobjpool *pop, uint64_t *off, size_t size,
-	void (*constructor)(PMEMobjpool *pop, void *ptr, void *arg), void *arg,
-	uint64_t data_off);
+using namespace pmem;
+using namespace std;
 
-int prealloc(PMEMobjpool *pop, uint64_t *off, size_t size, uint64_t data_off);
-int prealloc_construct(PMEMobjpool *pop, uint64_t *off, size_t size,
-	void (*constructor)(PMEMobjpool *pop, void *ptr, void *arg), void *arg,
-	uint64_t data_off);
+class A {
+public:
+	p<int> a;
+	p<int> b;
+	A() {};
+	A(int aa, int bb) {
+		cout<<"dupa"<<endl;
+		a =aa;
+		b=bb;
+	};
+	virtual void func() = 0;
+};
 
-size_t pmalloc_usable_size(PMEMobjpool *pop, uint64_t off);
-int pfree(PMEMobjpool *pop, uint64_t *off, uint64_t data_off);
+class B : public A {
+public:
+//	B() {};
+	B(int a, int b) : A(a, b) {};
+	//B(int value) : my_value(value) {};
+
+	void func() {
+		cout << "class B: " << my_value << endl;
+	}
+
+	p<int> my_value;
+};
+
+class C : public A {
+public:
+	C() {};
+	C(int value) : my_value(value) {};
+
+	void func() {
+		cout << "class C: " << my_value << endl;
+	}
+
+	p<int> my_value;
+};
+
+class my_root
+{
+public:
+	vector<
+		persistent_ptr<A>,
+		pmem_allocator_basic<persistent_ptr<A>>
+	> pvector;
+
+	p<int> counter;
+};
+
+int
+main(int argc, char *argv[])
+{
+//	PMEM_REGISTER_TYPE(B);
+	PMEM_REGISTER_TYPE(C);
+
+	pool<my_root> pop;
+	if (pop.exists(argv[1], LAYOUT_NAME))
+		pop.open(argv[1], LAYOUT_NAME);
+	else
+		pop.create(argv[1], LAYOUT_NAME);
+
+	persistent_ptr<my_root> r = pop.get_root();
+
+	try {
+		pop.exec_tx([&] () {
+			r->pvector.push_back(make_persistent<B>(r->counter++, 1));
+				r->pvector.push_back(make_persistent<B>(r->counter++, 3));
+			//	make_persistent<B>();
+			/* transaction_abort_current(-1); */
+			r->pvector.push_back(make_persistent<C>(r->counter++));
+		});
+	} catch (transaction_error err) {
+		cout << err.what() << endl;
+	}
+
+	for (auto ptr : r->pvector) {
+		ptr->func();
+//		cout << typeid(*ptr).name() << endl;
+	}
+
+	pop.close();
+}

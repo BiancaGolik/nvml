@@ -407,10 +407,8 @@ main(int argc, char *argv[])
 		switch (*argv[i]) {
 			case 'a': {
 				printf("append: %s\n", argv[i] + 2);
-				if (pmemlog_append(plp, argv[i] + 2,
-					strlen(argv[i] + 2)))
-					fprintf(stderr, "pmemlog_append"
-						" error\n");
+				pmemlog_append(plp, argv[i] + 2,
+					strlen(argv[i] + 2));
 				break;
 			}
 			case 'v': {
@@ -418,14 +416,9 @@ main(int argc, char *argv[])
 				int count = count_iovec(argv[i] + 2);
 				struct iovec *iov = malloc(count
 						* sizeof (struct iovec));
-				if (iov == NULL) {
-					fprintf(stderr, "malloc error\n");
-					return 1;
-				}
+				assert(iov != NULL);
 				fill_iovec(iov, argv[i] + 2);
-				if (pmemlog_appendv(plp, iov, count))
-					fprintf(stderr, "pmemlog_appendv"
-						" error\n");
+				pmemlog_appendv(plp, iov, count);
 				free(iov);
 				break;
 			}

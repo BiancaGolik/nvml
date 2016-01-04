@@ -1,4 +1,3 @@
-#!/bin/bash -e
 #
 # Copyright (c) 2015, Intel Corporation
 #
@@ -32,44 +31,43 @@
 #
 
 #
-# src/test/ex_libpmemobj/TEST15 -- unit test for libpmemobj examples
+# examples/libpmemobj/pminvaders/Makefile -- build the non-tx example
 #
-export UNITTEST_NAME=ex_libpmemobj/TEST15
-export UNITTEST_NUM=15
+PROGS = pminvaders
+INCDIR ?= ../../../include
+LIBDIR ?= ../../../nondebug
 
-# standard unit test setup
-. ../unittest/unittest.sh
+CXX = c++
+INCS = -I$(INCDIR)
+LIBS = -Wl,-rpath=$(LIBDIR) -L$(LIBDIR) -lpmemobj -pthread -lstdc++ -lncurses
+CFLAGS = -std=c++11 -ggdb# -Wall -Werror
+CSTYLE = ../../../../utils/cstyle
 
-require_build_type debug nondebug
-require_fs_type pmem
+all:     TARGET = all
+clean:   TARGET = clean
+clobber: TARGET = clobber
+cstyle:  TARGET = cstyle
 
-pkg-config ncurses 2>&1 > /dev/null
-if [ $? -ne 0 ]; then
-	echo "$UNITTEST_NAME: SKIP ncurses required"
-	exit 0
-fi
+all: $(PROGS)
 
-setup
+clean: $(DIRS)
+	$(RM) *.o core a.out
 
-EX_PATH=../../examples/libpmemobj/pminvaders
-INPUT=$DIR/input.txt
+clobber: clean $(DIRS)
+	$(RM) $(PROGS)
 
-dd if=/dev/zero bs=1k count=4 2>>prep$UNITTEST_NUM.log | tr '\0' ' ' >> $INPUT
-echo -n oooo >> $INPUT
-dd if=/dev/zero bs=1k count=4 2>>prep$UNITTEST_NUM.log | tr '\0' ' ' >> $INPUT
-echo -n ppppppp >> $INPUT
-dd if=/dev/zero bs=1k count=4 2>>prep$UNITTEST_NUM.log | tr '\0' ' ' >> $INPUT
-echo -n ooo >> $INPUT
-dd if=/dev/zero bs=1k count=4 2>>prep$UNITTEST_NUM.log | tr '\0' ' ' >> $INPUT
-echo -n q >> $INPUT
+cstyle: $(DIRS)
+	$(CSTYLE) -pP *.[ch]
 
-if [ -t 1 -a -z "$NOTTY" ]
-then
-	out="/dev/stdout"
-else
-	out="/dev/null"
-fi
+.cpp.o:
+	$(CXX) -c -o $@ $(CFLAGS) $(INCS) $<
 
-expect_normal_exit $EX_PATH/pminvaders $DIR/testfile1 >$out < $INPUT
+$(PROGS):
+	$(CXX) -o $@ $< $(LIBS)
 
-pass
+pminvaders: pminvaders.o
+
+$(DIRS):
+	$(MAKE) -C $@ $(TARGET)
+
+.PHONY: all clean clobber cstyle $(DIRS)

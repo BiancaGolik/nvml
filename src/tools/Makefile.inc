@@ -31,7 +31,7 @@
 # src/tools/Makefile.inc -- Makefile include for all tools
 #
 
-TOP := $(dir $(lastword $(MAKEFILE_LIST)))../..
+TOP := $(dir $(lastword $(MAKEFILE_LIST)))/../..
 include $(TOP)/src/common.inc
 
 INCS += -I.
@@ -45,9 +45,7 @@ CFLAGS += -Wunused-macros
 CFLAGS += -Wmissing-field-initializers
 CFLAGS += -Wsign-conversion
 CFLAGS += -Wsign-compare
-ifeq ($(call check_Wconversion), y)
-CFLAGS += -Wconversion
-endif
+#CFLAGS += -Wconversion
 CFLAGS += -fno-common
 CFLAGS += $(EXTRA_CFLAGS)
 CFLAGS += -O2 -D_FORTIFY_SOURCE=2
