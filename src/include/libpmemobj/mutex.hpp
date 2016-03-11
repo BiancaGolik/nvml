@@ -145,6 +145,14 @@ namespace obj {
 		}
 
 		/**
+		 * Return lock type
+		 */
+		enum pobj_tx_lock get_type()
+		{
+			return TX_LOCK_MUTEX;
+		}
+
+		/**
 		 * Deleted assignment operator.
 		 */
 		mutex &operator=(const mutex&) = delete;
