@@ -52,11 +52,13 @@ using namespace nvml::obj;
 
 #define LOCKS_NUM 10
 #define TEST_VALUE 5
+#define N_NESTINGS 100
 
 /* pool root class */
 class root {
 public:
 	p<int> test;
+	p<int> a;
 	nvml::obj::mutex *mtx[LOCKS_NUM];
 	shared_mutex *rwlk[LOCKS_NUM];
 };
@@ -84,21 +86,42 @@ public:
 		delete(tx);
 	}
 
-	void cpp_tx_nested()
+	void cpp_tx_nested_one_lock()
 	{
 		return;
 	}
 
 	template<typename L, typename... T>
-	void cpp_tx_nested(L lock, T... locks)
+	void cpp_tx_nested_one_lock(L lock, T... locks)
 	{
 		r->test = 0;
 		transaction *tx;
 		try {
 			tx = new transaction(pop, lock);
 			r->test = TEST_VALUE;
-			if (sizeof...(T) > 0)
-				cpp_tx_nested(locks...);
+			cpp_tx_nested_one_lock(locks...);
+		} catch (transaction_error &e) {
+			ASSERT(0);
+		}
+		ASSERTeq(r->test, TEST_VALUE);
+		delete(tx);
+	}
+
+	void cpp_tx_nested_all_locks()
+	{
+		return;
+	}
+
+	template<typename L, typename... T>
+	void cpp_tx_nested_all_locks(L lock, T... locks)
+	{
+		r->test = 0;
+		transaction *tx;
+		try {
+			tx = new transaction(pop, locks...);
+			r->test = TEST_VALUE;
+			if (level != N_NESTINGS)
+				cpp_tx_nested_all_locks(locks...);
 		} catch (transaction_error &e) {
 			ASSERT(0);
 		}
@@ -110,7 +133,7 @@ public:
 	void cpp_tx_abort(T... locks)
 	{
 		r->test = 0;
-		int a = 0;
+		r->a = 0;
 		transaction *tx;
 		try {
 			tx = new transaction(pop, locks...);
@@ -118,9 +141,9 @@ public:
 			tx->abort(-1);
 			ASSERT(0);
 		} catch (transaction_error &e) {
-			a = TEST_VALUE;
+			r->a = TEST_VALUE;
 		}
-		ASSERTeq(a, TEST_VALUE);
+		ASSERTeq(r->a, TEST_VALUE);
 		ASSERTeq(r->test, 0);
 		delete(tx);
 	}
@@ -129,21 +152,24 @@ public:
 	template<typename... T>
 	void cpp_do_tx(T... locks)
 	{
+		level = 0;
 		cpp_tx(locks...);
+		cpp_tx_nested_one_lock(locks...);
+		cpp_tx_nested_all_locks(locks...);
 		cpp_tx_abort(locks...);
-		cpp_tx_nested(locks...);
 
 	}
 
 private:
 	pool<root> pop;
 	persistent_ptr<root> r;
+	p<int> level;
 };
 
 int
 main(int argc, char *argv[])
 {
-	START(argc, argv, "obj_cpp_ptr");
+	START(argc, argv, "obj_cpp_tx");
 	pool<root> p;
 	persistent_ptr<root> r;
 	try {

@@ -41,17 +41,40 @@
 #include "libpmemobj/detail/pexceptions.hpp"
 #include "libpmemobj/mutex.hpp"
 #include "libpmemobj/shared_mutex.hpp"
-using namespace std;
-namespace nvml{
-namespace obj {
 
+namespace nvml{
+
+namespace obj {
+	/**
+	 * PMEMobj transaction class
+	 *
+	 * This class is the pmemobj transaction handler. All operations
+	 * between creating and destroing transaction object are treated as
+	 * performed in transiction block and can be rolled back
+	 */
 	class transaction
 	{
+		/**
+		 * Default add_lock.
+		 *
+		 * If there are no locks specifiad in constructors arguments
+		 * there is no operation performed.
+		 *
+		 */
 		int add_lock(void *lane)
 		{
 			return 0;
 		}
 
+		/**
+		 * Add recursively locks to current transaction.
+		 *
+		 * @param[in] pop: pool handle
+		 * @param[in] lock, args: locks of mutex or shared_mutex type.
+		 *
+		 * @return error number if adding lock operation fail.
+		 *
+		 */
 		template <typename P, typename... L>
 		int add_lock(PMEMobjpool *pop, P &lock, L&&... args)
 		{
@@ -99,13 +122,21 @@ namespace obj {
 			throw transaction_error("explicit abort " +
 						std::to_string(err));
 		}
+
+		static void abort_current(int err)
+		{
+			pmemobj_tx_abort(err);
+			throw transaction_error("explicit abort " +
+						std::to_string(err));
+		}
+
+		static void commit_current(int err)
+		{
+			if (pmemobj_tx_stage() != TX_STAGE_WORK)
+				throw transaction_error("no open transaction");
+			pmemobj_tx_process();
+		}
 	};
-	void transaction_abort_current(int err)
-	{
-		pmemobj_tx_abort(err);
-		throw transaction_error("explicit abort " +
-					std::to_string(err));
-	}
 }
 
 }
