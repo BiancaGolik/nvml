@@ -2671,8 +2671,10 @@ and an error number is returned.
 .IP
 The
 .BR pmemobj_tx_add_lock ()
-function adds lock to current transaction.
-Lock is specified by
+function adds
+.I lock
+to current transaction.
+The lock type is specified by
 .I lock_type
 (
 .I TX_LOCK_MUTEX
@@ -2684,7 +2686,9 @@ of
 .I PMEMmutex
 or
 .I PMEMrwlock
-type. If successful, lock is added to transaction, locked and function
+type. If successful,
+.I lock
+is added to transaction, locked and function
 returns zero. Otherwise, stage changes to
 .I TX_STAGE_ONABORT
 and an error number is returned.

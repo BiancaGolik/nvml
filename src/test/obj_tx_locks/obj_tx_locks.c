@@ -168,27 +168,6 @@ do_aborted_nested_tx(void *arg)
 	return NULL;
 }
 
-/*
- * do_tx_add_locks -- (internal) thread-friendly transaction where locks are
- * added after transaction's begin
- */
-static void *
-do_tx_add_locks(void *arg)
-{
-	struct transaction_data *data = arg;
-	int ret = 0;
-	TX_BEGIN(data->pop) {
-		pmemobj_tx_add_lock(data->pop, TX_LOCK_MUTEX,
-							&data->mutexes[0]);
-		ret = pmemobj_mutex_trylock(data->pop, &data->mutexes[0]);
-		ASSERT(ret != 0);
-	} TX_ONABORT { /* not called */
-		ASSERT(0);
-	} TX_END
-
-	return NULL;
-}
-
 static void
 run_mt_test(void *(*worker)(void *), void *arg)
 {
@@ -266,12 +245,6 @@ main(int argc, char *argv[])
 	ASSERT(test_obj.a == TEST_VALUE_B);
 	ASSERT(test_obj.b == TEST_VALUE_A);
 	ASSERT(test_obj.c == TEST_VALUE_C);
-
-	if (multithread) {
-		run_mt_test(do_tx_add_locks, &test_obj);
-	} else {
-		do_tx_add_locks(&test_obj);
-	}
 
 	pmemobj_close(test_obj.pop);
 
