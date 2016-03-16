@@ -218,14 +218,6 @@ namespace obj {
 		}
 
 		/**
-		 * Return lock type
-		 */
-		enum pobj_tx_lock get_type()
-		{
-			return TX_LOCK_RWLOCK;
-		}
-
-		/**
 		 * Deleted assignment operator.
 		 */
 		shared_mutex &operator=(const shared_mutex&) = delete;
