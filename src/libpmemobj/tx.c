@@ -1042,8 +1042,7 @@ pmemobj_tx_lock(enum pobj_tx_lock type, void *lockp)
 	ASSERT_IN_TX();
 	ASSERT_TX_STAGE_WORK();
 
-	struct lane_tx_runtime *lane =
-				(struct lane_tx_runtime *)tx.section->runtime;
+	struct lane_tx_runtime *lane = tx.section->runtime;
 
 	return add_to_tx_and_lock(lane, type, lockp);
 }

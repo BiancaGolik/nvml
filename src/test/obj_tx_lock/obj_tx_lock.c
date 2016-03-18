@@ -35,7 +35,6 @@
  */
 #include "unittest.h"
 #include "libpmemobj.h"
-#include "util.h"
 
 #define	LAYOUT_NAME "obj_tx_lock"
 
@@ -77,7 +76,7 @@ static struct transaction_data {
 
 /*
  * do_tx_add_locks -- (internal) transaction where locks are added after
- * transaction's begin
+ * transaction begins
  */
 static void *
 do_tx_add_locks(struct transaction_data *data)
@@ -96,7 +95,7 @@ do_tx_add_locks(struct transaction_data *data)
 
 /*
  * do_tx_add_locks_nested -- (internal) transaction where locks
- * are added after nested transaction's begin
+ * are added after nested transaction begins
  */
 static void *
 do_tx_add_locks_nested(struct transaction_data *data)
@@ -118,7 +117,7 @@ do_tx_add_locks_nested(struct transaction_data *data)
 
 /*
  * do_tx_add_locks_nested_all -- (internal) transaction where all locks
- * are added in both transactions after transaction's begin
+ * are added in both transactions after transaction begins
  */
 static void *
 do_tx_add_locks_nested_all(struct transaction_data *data)

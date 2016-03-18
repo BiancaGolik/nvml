@@ -33,8 +33,6 @@
 #
 # src/test/obj_tx_lock/Makefile -- build obj_tx_locks unit test
 #
-vpath %.c ../../libpmemobj
-vpath %.c ../../common
 
 TARGET = obj_tx_lock
 OBJS = obj_tx_lock.o
@@ -43,5 +41,3 @@ LIBPMEM=y
 LIBPMEMOBJ=y
 
 include ../Makefile.inc
-
-INCS += -I../../libpmemobj/ -I../../common/

@@ -2692,6 +2692,10 @@ is added to transaction, locked and function
 returns zero. Otherwise, stage changes to
 .I TX_STAGE_ONABORT
 and an error number is returned.
+In case of
+.I PMEMrwlock
+.I lock_type
+function acquires a write lock.
 This function must be called during
 .IR TX_STAGE_WORK .
 .PP
