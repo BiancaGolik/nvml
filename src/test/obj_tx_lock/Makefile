@@ -1,6 +1,5 @@
-#!/bin/bash -e
 #
-# Copyright 2015-2016, Intel Corporation
+# Copyright 2016, Intel Corporation
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -32,16 +31,17 @@
 #
 
 #
-# src/test/obj_tx_add_lock/TEST0 -- unit test for pmemobj_tx_add_lock()
+# src/test/obj_tx_lock/Makefile -- build obj_tx_locks unit test
 #
-export UNITTEST_NAME=obj_tx_add_lock/TEST0
-export UNITTEST_NUM=0
+vpath %.c ../../libpmemobj
+vpath %.c ../../common
 
-# standard unit test setup
-. ../unittest/unittest.sh
+TARGET = obj_tx_lock
+OBJS = obj_tx_lock.o
 
-setup
+LIBPMEM=y
+LIBPMEMOBJ=y
 
-expect_normal_exit ./obj_tx_add_lock$EXESUFFIX $DIR/testfile1
+include ../Makefile.inc
 
-pass
+INCS += -I../../libpmemobj/ -I../../common/

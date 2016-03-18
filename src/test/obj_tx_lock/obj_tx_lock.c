@@ -1,5 +1,5 @@
 /*
- * Copyright 2015-2016, Intel Corporation
+ * Copyright 2016, Intel Corporation
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,13 +31,13 @@
  */
 
 /*
- * obj_tx_add_lock.c -- unit test for pmemobj_obj_tx_add_lock()
+ * obj_tx_lock.c -- unit test for pmemobj_tx_lock()
  */
 #include "unittest.h"
 #include "libpmemobj.h"
 #include "util.h"
 
-#define	LAYOUT_NAME "obj_tx_add_lock"
+#define	LAYOUT_NAME "obj_tx_lock"
 
 #define	NUM_LOCKS 2
 
@@ -47,13 +47,13 @@ static struct transaction_data {
 	PMEMrwlock *rwlocks;
 } test_obj;
 
-#define	DO_LOCK(pop, mtx, rwlock)\
-	pmemobj_tx_add_lock((pop), TX_LOCK_MUTEX, &(mtx)[0]);\
-	pmemobj_tx_add_lock((pop), TX_LOCK_MUTEX, &(mtx)[1]);\
-	pmemobj_tx_add_lock((pop), TX_LOCK_RWLOCK, &(rwlock)[0]);\
-	pmemobj_tx_add_lock((pop), TX_LOCK_RWLOCK, &(rwlock)[1])
+#define	DO_LOCK(mtx, rwlock)\
+	pmemobj_tx_lock(TX_LOCK_MUTEX, &(mtx)[0]);\
+	pmemobj_tx_lock(TX_LOCK_MUTEX, &(mtx)[1]);\
+	pmemobj_tx_lock(TX_LOCK_RWLOCK, &(rwlock)[0]);\
+	pmemobj_tx_lock(TX_LOCK_RWLOCK, &(rwlock)[1])
 
-#define	IS_FREE(pop, mtx, rwlock)\
+#define	IS_UNLOCKED(pop, mtx, rwlock)\
 	ret = 0;\
 	ret += pmemobj_mutex_trylock((pop), &(mtx)[0]);\
 	ret += pmemobj_mutex_trylock((pop), &(mtx)[1]);\
@@ -83,14 +83,14 @@ static void *
 do_tx_add_locks(struct transaction_data *data)
 {
 	int ret;
-	IS_FREE(data->pop, data->mutexes, data->rwlocks);
+	IS_UNLOCKED(data->pop, data->mutexes, data->rwlocks);
 	TX_BEGIN(data->pop) {
-		DO_LOCK(data->pop, data->mutexes, data->rwlocks);
+		DO_LOCK(data->mutexes, data->rwlocks);
 		IS_LOCKED(data->pop, data->mutexes, data->rwlocks);
 	} TX_ONABORT { /* not called */
 		ASSERT(0);
 	} TX_END
-	IS_FREE(data->pop, data->mutexes, data->rwlocks);
+	IS_UNLOCKED(data->pop, data->mutexes, data->rwlocks);
 	return NULL;
 }
 
@@ -103,16 +103,16 @@ do_tx_add_locks_nested(struct transaction_data *data)
 {
 	int ret;
 	TX_BEGIN(data->pop) {
-		IS_FREE(data->pop, data->mutexes, data->rwlocks);
+		IS_UNLOCKED(data->pop, data->mutexes, data->rwlocks);
 		TX_BEGIN(data->pop) {
-			DO_LOCK(data->pop, data->mutexes, data->rwlocks);
+			DO_LOCK(data->mutexes, data->rwlocks);
 			IS_LOCKED(data->pop, data->mutexes, data->rwlocks);
 		} TX_END
 		IS_LOCKED(data->pop, data->mutexes, data->rwlocks);
 	} TX_ONABORT {
 		ASSERT(0);
 	} TX_END
-	IS_FREE(data->pop, data->mutexes, data->rwlocks);
+	IS_UNLOCKED(data->pop, data->mutexes, data->rwlocks);
 	return NULL;
 }
 
@@ -125,19 +125,19 @@ do_tx_add_locks_nested_all(struct transaction_data *data)
 {
 	int ret;
 	TX_BEGIN(data->pop) {
-		IS_FREE(data->pop, data->mutexes, data->rwlocks);
-		DO_LOCK(data->pop, data->mutexes, data->rwlocks);
+		IS_UNLOCKED(data->pop, data->mutexes, data->rwlocks);
+		DO_LOCK(data->mutexes, data->rwlocks);
 		IS_LOCKED(data->pop, data->mutexes, data->rwlocks);
 		TX_BEGIN(data->pop) {
 			IS_LOCKED(data->pop, data->mutexes, data->rwlocks);
-			DO_LOCK(data->pop, data->mutexes, data->rwlocks);
+			DO_LOCK(data->mutexes, data->rwlocks);
 			IS_LOCKED(data->pop, data->mutexes, data->rwlocks);
 		} TX_END
 		IS_LOCKED(data->pop, data->mutexes, data->rwlocks);
 	} TX_ONABORT {
 		ASSERT(0);
 	} TX_END
-	IS_FREE(data->pop, data->mutexes, data->rwlocks);
+	IS_UNLOCKED(data->pop, data->mutexes, data->rwlocks);
 	return NULL;
 }
 
@@ -145,7 +145,7 @@ do_tx_add_locks_nested_all(struct transaction_data *data)
 int
 main(int argc, char *argv[])
 {
-	START(argc, argv, "obj_tx_locks");
+	START(argc, argv, "obj_tx_lock");
 
 	if (argc != 2)
 		FATAL("usage: %s <file>", argv[0]);
@@ -162,6 +162,9 @@ main(int argc, char *argv[])
 	do_tx_add_locks_nested_all(&test_obj);
 
 	pmemobj_close(test_obj.pop);
+
+	FREE(test_obj.rwlocks);
+	FREE(test_obj.mutexes);
 
 	DONE(NULL);
 }

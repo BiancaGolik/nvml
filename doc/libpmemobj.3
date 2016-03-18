@@ -37,7 +37,7 @@
 .\" or
 .\"	groff -man -Tascii libpmemobj.3
 .\"
-.TH libpmemobj 3 "pmemobj API version 0.4.28" "NVM Library"
+.TH libpmemobj 3 "pmemobj API version 0.4.29" "NVM Library"
 .SH NAME
 libpmemobj \- persistent memory transactional object store
 .SH SYNOPSIS
@@ -255,7 +255,7 @@ libpmemobj \- persistent memory transactional object store
 .BI "enum tx_stage pmemobj_tx_stage(void);
 .sp
 .BI "int pmemobj_tx_begin(PMEMobjpool *" pop ", jmp_buf *" env ", enum " tx_lock ", " ... );
-.BI "int pmemobj_tx_add_lock(PMEMobjpool *" pop ", enum tx_lock " lock_type ", void *" lock  );
+.BI "int pmemobj_tx_lock(enum tx_lock " lock_type ", void *" lockp  );
 .BI "void pmemobj_tx_abort(int " errnum );
 .BI "void pmemobj_tx_commit(void);
 .BI "int pmemobj_tx_end(void);
@@ -2667,13 +2667,13 @@ returns zero.  Otherwise, stage changes to
 .I TX_STAGE_ONABORT
 and an error number is returned.
 .PP
-.BI "int pmemobj_tx_add_lock(PMEMobjpool *" pop ", enum tx_lock " lock_type ", void *" lock  );
+.BI "int pmemobj_tx_lock(enum tx_lock " lock_type ", void *" lockp  );
 .IP
 The
-.BR pmemobj_tx_add_lock ()
-function adds
-.I lock
-to current transaction.
+.BR pmemobj_tx_lock ()
+function grabs a lock pointed by
+.I lockp
+and adds it to the current transaction.
 The lock type is specified by
 .I lock_type
 (
