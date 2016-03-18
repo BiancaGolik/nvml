@@ -45,6 +45,13 @@
 namespace nvml{
 
 namespace obj {
+
+	enum pobj_tx_end {
+		TX_ABORT,
+		TX_COMMIT,
+		TX_END_UNKNOWN
+	};
+
 	/**
 	 * PMEMobj transaction class
 	 *
@@ -54,6 +61,112 @@ namespace obj {
 	 */
 	class transaction
 	{
+	public:
+
+		/**
+		 * Simple construcor.
+		 *
+		 * Start pmemobj transaction
+		 *
+		 * @param[in] pop: pool object.
+		 * @param[in] end: enum describing how to end transaction. Only
+		 *		valid options are TX_COMMIT or TX_ABORT.
+		 *
+		 * @throw nvml::transaction_error when pmemobj_tx_begin
+		 * function failed.
+		 */
+		transaction(pool_base &p, enum pobj_tx_end end_op = TX_COMMIT)
+		{
+			if (pmemobj_tx_begin(p.get_handle(), NULL,
+							TX_LOCK_NONE) != 0)
+				throw transaction_error(
+					"failed to start transaction");
+
+			if (end_op >= TX_END_UNKNOWN)
+				throw transaction_error("invalid ");
+			end = end_op;
+		}
+
+		/**
+		 * Locks construcor.
+		 *
+		 * Start pmemobj transaction and add list of locks to new
+		 * transaction
+		 *
+		 * @param[in] pop: pool object.
+		 * @param[in] lock, args: locks of mutex or shared_mutex type.
+		 * @param[in] end_op: enum describing how to end transaction. Only
+		 *		valid options are TX_COMMIT or TX_ABORT.
+		 *
+		 * @throw nvml::transaction_error when pmemobj_tx_begin
+		 * function or locks adding failed or when invalid end_op
+		 * argument is given..
+		 */
+		template<typename... L>
+		transaction(pool_base &p, enum pobj_tx_end end_op,
+								L&&... locks)
+
+		{
+			if (pmemobj_tx_begin(p.get_handle(), NULL,
+							TX_LOCK_NONE) != 0)
+				throw transaction_error(
+					"failed to start transaction");
+
+			enum pobj_tx_end end = end_op;
+			if (end >= TX_END_UNKNOWN)
+				throw transaction_error("invalid ");
+
+			int err = add_lock(locks...);
+
+			if (err) {
+				pmemobj_tx_abort(EINVAL);
+				throw transaction_error("failed to add lock");
+			}
+
+		}
+
+		/**
+		 * Default destrucor.
+		 *
+		 * End pmemobj transaction
+		 */
+		~transaction()
+		{
+			if (end == TX_ABORT) {
+				abort(EINVAL);
+			}
+
+			pmemobj_tx_process();
+			pmemobj_tx_end();
+		}
+
+		/**
+		 * Abort current transaction.
+		 *
+		 * @throw nvml::transaction_error when pmemobj_tx_begin
+		 * function or locks adding failed.
+		 */
+		static void abort(int err)
+		{
+			pmemobj_tx_abort(err);
+			throw transaction_error("explicit abort " +
+						std::to_string(err));
+		}
+
+		/**
+		 * Commit current transaction.
+		 *
+		 * @throw nvml::transaction_error when trying to commit
+		 * transaction in different stage than TX_STAGE_WORK.
+		 */
+		static void commit(int err)
+		{
+			if (pmemobj_tx_stage() != TX_STAGE_WORK)
+				throw transaction_error("no open transaction");
+			pmemobj_tx_process();
+		}
+	private:
+		enum pobj_tx_end end;
 		/**
 		 * Default add_lock.
 		 *
@@ -61,82 +174,33 @@ namespace obj {
 		 * there is no operation performed.
 		 *
 		 */
-		int add_lock(void *lane)
+		int add_lock()
 		{
 			return 0;
 		}
 
 		/**
-		 * Add recursively locks to current transaction.
+		 * Add lock to current transaction.
 		 *
-		 * @param[in] pop: pool handle
+		 * Add first lock from list of locks to current transaction
+		 * and calls recursive function for the list of the rest locks
+		 *
 		 * @param[in] lock, args: locks of mutex or shared_mutex type.
 		 *
 		 * @return error number if adding lock operation fail.
 		 *
 		 */
 		template <typename P, typename... L>
-		int add_lock(PMEMobjpool *pop, P &lock, L&&... args)
+		int add_lock(P &lock, L&&... args)
 		{
-			int err = add_lock(pop, args...);
+			int err = add_lock(args...);
 			if (err)
 				return err;
-
-			return pmemobj_tx_add_lock(pop, lock->get_type(),
+			return pmemobj_tx_lock(lock->get_type(),
 							lock->native_handle());
 		}
-	public:
-		template<typename T>
-		transaction(pool<T> &p)
-		{
-			if (pmemobj_tx_begin(p.get_handle(), NULL,
-							TX_LOCK_NONE) != 0)
-				throw transaction_error(
-					"failed to start transaction");
-		}
-
-		template<typename T, typename... L>
-		transaction(pool<T> &p, L&&... locks)
-		{
-			if (pmemobj_tx_begin(p.get_handle(), NULL,
-							TX_LOCK_NONE) != 0)
-				throw transaction_error(
-					"failed to start transaction");
-
-			int err = add_lock(p.get_handle(), locks...);
-
-			if (err)
-				pmemobj_tx_abort(EINVAL);
-		}
-
-		~transaction()
-		{
-			/* can't throw from destructor */
-			pmemobj_tx_process();
-			pmemobj_tx_end();
-		}
-
-		void abort(int err)
-		{
-			pmemobj_tx_abort(err);
-			throw transaction_error("explicit abort " +
-						std::to_string(err));
-		}
-
-		static void abort_current(int err)
-		{
-			pmemobj_tx_abort(err);
-			throw transaction_error("explicit abort " +
-						std::to_string(err));
-		}
-
-		static void commit_current(int err)
-		{
-			if (pmemobj_tx_stage() != TX_STAGE_WORK)
-				throw transaction_error("no open transaction");
-			pmemobj_tx_process();
-		}
 	};
+
 }
 
 }

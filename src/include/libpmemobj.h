@@ -794,8 +794,7 @@ int pmemobj_tx_begin(PMEMobjpool *pop, jmp_buf env, ...);
 /*
  * Adds lock of given type to current transaction identified by pool handle.
  */
-int pmemobj_tx_add_lock(PMEMobjpool *pop, enum pobj_tx_lock type,
-								void *lock);
+int pmemobj_tx_lock(enum pobj_tx_lock type, void *lockp);
 
 /*
  * Aborts current transaction

@@ -58,7 +58,7 @@ using namespace nvml::obj;
 class root {
 public:
 	p<int> test;
-	p<int> a;
+	p<int> data;
 	nvml::obj::mutex *mtx[LOCKS_NUM];
 	shared_mutex *rwlk[LOCKS_NUM];
 };
@@ -77,7 +77,7 @@ public:
 		r->test = 0;
 		transaction *tx;
 		try {
-			tx = new transaction(pop, locks...);
+			tx = new transaction(pop, TX_COMMIT, locks...);
 			r->test = TEST_VALUE;
 		} catch (transaction_error &e) {
 			ASSERT(0);
@@ -85,7 +85,6 @@ public:
 		ASSERTeq(r->test, TEST_VALUE);
 		delete(tx);
 	}
-
 	void cpp_tx_nested_one_lock()
 	{
 		return;
@@ -97,7 +96,7 @@ public:
 		r->test = 0;
 		transaction *tx;
 		try {
-			tx = new transaction(pop, lock);
+			tx = new transaction(pop, TX_COMMIT, lock);
 			r->test = TEST_VALUE;
 			cpp_tx_nested_one_lock(locks...);
 		} catch (transaction_error &e) {
@@ -118,7 +117,7 @@ public:
 		r->test = 0;
 		transaction *tx;
 		try {
-			tx = new transaction(pop, locks...);
+			tx = new transaction(pop, TX_COMMIT, locks...);
 			r->test = TEST_VALUE;
 			if (level != N_NESTINGS)
 				cpp_tx_nested_all_locks(locks...);
@@ -133,20 +132,39 @@ public:
 	void cpp_tx_abort(T... locks)
 	{
 		r->test = 0;
-		r->a = 0;
+		r->data = 0;
 		transaction *tx;
 		try {
-			tx = new transaction(pop, locks...);
+			tx = new transaction(pop, TX_COMMIT, locks...);
 			r->test = TEST_VALUE;
 			tx->abort(-1);
 			ASSERT(0);
 		} catch (transaction_error &e) {
-			r->a = TEST_VALUE;
+			r->data = TEST_VALUE;
 		}
-		ASSERTeq(r->a, TEST_VALUE);
+		ASSERTeq(r->data, TEST_VALUE);
 		ASSERTeq(r->test, 0);
 		delete(tx);
 	}
+
+	template<typename... T>
+	void cpp_tx_default_abort(T... locks)
+	{
+		r->test = 0;
+		r->data = 0;
+		transaction *tx;
+		try {
+			tx = new transaction(pop, TX_ABORT, locks...);
+			r->test = TEST_VALUE;
+		} catch (transaction_error &e) {
+			r->data = TEST_VALUE;
+		}
+		ASSERTeq(r->data, 0);
+		ASSERTeq(r->test, TEST_VALUE);
+		delete(tx);
+	}
+
+
 
 
 	template<typename... T>
@@ -157,6 +175,7 @@ public:
 		cpp_tx_nested_one_lock(locks...);
 		cpp_tx_nested_all_locks(locks...);
 		cpp_tx_abort(locks...);
+		cpp_tx_default_abort(locks...);
 
 	}
 

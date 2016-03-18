@@ -1034,22 +1034,17 @@ err_abort:
 }
 
 /*
- * pmemobj_tx_add_lock -- get lane from pool and add lock to transaction.
+ * pmemobj_tx_lock -- get lane from pool and add lock to transaction.
  */
 int
-pmemobj_tx_add_lock(PMEMobjpool *pop, enum pobj_tx_lock type, void *lock)
+pmemobj_tx_lock(enum pobj_tx_lock type, void *lockp)
 {
 	ASSERT_IN_TX();
 	ASSERT_TX_STAGE_WORK();
 
-	struct lane_tx_runtime *lane =
-				(struct lane_tx_runtime *)tx.section->runtime;
+	struct lane_tx_runtime *lane = tx.section->runtime;
 
-	if (pop->uuid_lo != lane->pop->uuid_lo) {
-		ERR("invalid pool uuid");
-		return pmemobj_tx_abort_err(EINVAL);
-	}
-	return add_to_tx_and_lock(lane, type, lock);
+	return add_to_tx_and_lock(lane, type, lockp);
 }
 
 /*
