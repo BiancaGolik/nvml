@@ -106,6 +106,8 @@ clo_parse_str(struct benchmark_clo *clo, const char *arg,
 	while (next) {
 		clo_vec_vlist_add(vlist, &next, sizeof(next));
 		next = strtok(NULL, ",");
+		if (next)
+			clovec->variable = clo;
 	}
 
 	int ret = clo_vec_memcpy_list(clovec, clo->off, sizeof(str), vlist);
@@ -377,7 +379,7 @@ clo_check_range_params(uint64_t step, char step_type)
 static int
 clo_parse_range(struct benchmark_clo *clo, const char *arg,
 		clo_parse_single_fn parse_single, clo_eval_range_fn eval_range,
-		struct clo_vec_vlist *vlist)
+		struct clo_vec_vlist *vlist, struct clo_vec *clovec)
 {
 	char *str_first = (char *)malloc(strlen(arg) + 1);
 	assert(str_first != NULL);
@@ -400,6 +402,7 @@ clo_parse_range(struct benchmark_clo *clo, const char *arg,
 			ret = 0;
 		}
 	} else if (ret == 4) {
+		clovec->variable = clo;
 		/* range */
 		uint64_t first = 0;
 		uint64_t last = 0;
@@ -472,14 +475,15 @@ clo_parse_ranges(struct benchmark_clo *clo, const char *arg,
 
 		/* parse each comma separated value as range or single value */
 		if ((ret = clo_parse_range(clo, curr, parse_single, eval_range,
-					   vlist)))
+					   vlist, clovec)))
 			goto out;
 
 		curr = next;
 	}
 
 	/* parse each comma separated value as range or single value */
-	if ((ret = clo_parse_range(clo, curr, parse_single, eval_range, vlist)))
+	if ((ret = clo_parse_range(clo, curr, parse_single, eval_range, vlist,
+					clovec)))
 		goto out;
 
 	/* add list of values to CLO vector */

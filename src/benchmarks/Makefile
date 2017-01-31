@@ -139,6 +139,13 @@ $(info NOTE: Skipping librpmem benchmark because libfabric is missing \
 -- see src/librpmem/README for details.)
 endif
 
+ifeq ($(HAS_JSON),y)
+CXXFLAGS += -DUSE_JSON
+LIBS += -ljson-c
+else
+$(info NOTE: Skipping json output options because libjson is missing)
+endif
+
 ifeq ($(GLIB),y)
 CXXFLAGS += $(shell $(PKG_CONFIG) --cflags glib-2.0)
 LIBS += $(shell $(PKG_CONFIG) --libs glib-2.0)

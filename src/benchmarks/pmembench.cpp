@@ -48,6 +48,11 @@
 #include <sys/wait.h>
 #include <unistd.h>
 
+#ifdef USE_JSON
+#include <json-c/json.h>
+#define N_MEASURES 10
+#endif
+
 #include "benchmark.hpp"
 #include "benchmark_worker.hpp"
 #include "clo.hpp"
@@ -85,6 +90,9 @@ struct benchmark {
 	struct benchmark_clo *clos;
 	size_t nclos;
 	size_t args_size;
+#ifdef USE_JSON
+	json_object *jobj;
+#endif
 };
 
 /*
@@ -134,7 +142,11 @@ static struct version_s {
 static struct bench_list benchmarks;
 
 /* common arguments for benchmarks */
+#ifdef USE_JSON
+static struct benchmark_clo pmembench_clos[9];
+#else
 static struct benchmark_clo pmembench_clos[8];
+#endif
 
 /* list of arguments for pmembench */
 static struct benchmark_clo pmembench_opts[2];
@@ -248,6 +260,14 @@ pmembench_costructor(void)
 	pmembench_clos[7].type_uint.base = CLO_INT_BASE_DEC | CLO_INT_BASE_HEX;
 	pmembench_clos[7].type_uint.min = 1;
 	pmembench_clos[7].type_uint.max = ULONG_MAX;
+#ifdef USE_JSON
+	pmembench_clos[8].opt_short = 'j';
+	pmembench_clos[8].opt_long = "json";
+	pmembench_clos[8].descr = "Print Output as a JSON";
+	pmembench_clos[8].type = CLO_TYPE_FLAG;
+	pmembench_clos[8].off = clo_field_offset(struct benchmark_args, json);
+	pmembench_clos[8].ignore_in_res = true;
+#endif
 }
 
 /*
@@ -374,11 +394,12 @@ pmembench_run_worker(struct benchmark *bench, struct worker_info *winfo)
 }
 
 /*
- * pmembench_print_header -- print header of benchmark's results
+ * pmembench_print_header_csv -- print header of benchmark's results in
+ * comma-separated format
  */
 static void
-pmembench_print_header(struct pmembench *pb, struct benchmark *bench,
-		       struct clo_vec *clovec)
+pmembench_print_header_csv(struct pmembench *pb, struct benchmark *bench,
+		       struct clo_vec *clovec, struct benchmark_args *args)
 {
 	if (pb->scenario) {
 		printf("%s: %s [%" PRIu64 "]%s%s%s\n", pb->scenario->name,
@@ -409,14 +430,15 @@ pmembench_print_header(struct pmembench *pb, struct benchmark *bench,
 }
 
 /*
- * pmembench_print_results -- print benchmark's results
+ * pmembench_print_results_csv -- print benchmark's results in comma-separated
+ * format
  */
 static void
-pmembench_print_results(struct benchmark *bench, struct benchmark_args *args,
-			size_t n_threads, size_t n_ops, struct results *stats,
-			struct latency *latency)
+pmembench_print_results_csv(struct benchmark *bench, struct pmembench *pb,
+			struct benchmark_args *args, size_t n_threads,
+			double opsps, struct results *stats,
+			struct latency *latency, struct clo_vec *clovec)
 {
-	double opsps = n_threads * n_ops / stats->avg;
 	printf("%f;%f;%f;%f;%f;%f;%" PRIu64 ";%" PRIu64 ";%" PRIu64 ";%f",
 	       stats->avg, opsps, stats->max, stats->min, stats->med,
 	       stats->std_dev, latency->avg, latency->min, latency->max,
@@ -430,6 +452,208 @@ pmembench_print_results(struct benchmark *bench, struct benchmark_args *args,
 	}
 	printf("\n");
 }
+
+#ifdef USE_JSON
+/*
+ * json_add -- add string value to given json_object
+ */
+static void
+json_add(json_object *jobj, const char *key, const char *value)
+{
+	json_object_object_add(jobj, key, json_object_new_string(value));
+}
+
+/*
+ * json_add -- add double value to given json_object
+ */
+static void
+json_add(json_object *jobj, const char *key, double value)
+{
+	json_object_object_add(jobj, key, json_object_new_double(value));
+}
+
+/*
+ * json_add -- add int value to given json_object.
+ */
+static void
+json_add(json_object *jobj, const char *key, int value)
+{
+	json_object_object_add(jobj, key, json_object_new_int(value));
+}
+
+/*
+ * pmembench_print_header -- print header of benchmark's results
+ * in object notation
+ */
+static void
+pmembench_print_header(struct pmembench *pb, struct benchmark *bench,
+		       struct clo_vec *clovec, struct benchmark_args *args)
+{
+	if (!args->json || !pb->scenario)
+		return pmembench_print_header_csv(pb, bench, clovec, args);
+
+	bench->jobj = json_object_new_object();
+	json_object *jscalars = json_object_new_array();
+
+	json_add(bench->jobj, "name", pb->scenario->name);
+	json_object_object_add(bench->jobj, "scalars", jscalars);
+
+	json_object *jvectors = json_object_new_array();
+	struct {
+		const char *measure;
+		const char *symbol;
+	} measures[N_MEASURES] = {{"total-avg", "sec"},
+	       {"ops-per-second", "1/sec"},
+	       {"total-max", "sec"},
+	       {"total-min", "sec"},
+	       {"total-median", "sec"},
+	       {"total-std-dev", "sec"},
+	       {"latency-avg", "nsec"},
+	       {"latency-min", "nsec"},
+	       {"latency-max", "nsec"},
+	       {"latency-std-dev", "nsec"}};
+	size_t i;
+	for (i = 0; i < N_MEASURES; i++)
+	{
+		json_object *oneVector = json_object_new_object();
+		json_object *key = json_object_new_object();
+		json_object *value = json_object_new_object();
+
+		json_add(oneVector, "metricName", measures[i].measure);
+
+		const char *quantityName = clovec->variable == NULL ? "unknown" :
+						clovec->variable->opt_long;
+		json_add(key, "quantityName", quantityName);
+
+		json_add(value, "quantityName", measures[i].measure);
+		json_add(value, "unitSymbol", measures[i].symbol);
+
+		json_object_object_add(oneVector, "key", key);
+		json_object_object_add(oneVector, "value", value);
+		json_object_object_add(oneVector, "values",
+						json_object_new_array());
+		json_object_array_add(jvectors, oneVector);
+	}
+	json_object_object_add(bench->jobj, "vectors", jvectors);
+}
+
+/*
+ * pmembench_print_results -- print benchmark's results in object notation
+ */
+static void
+pmembench_print_results(struct benchmark *bench, struct pmembench *pb,
+			struct benchmark_args *args, size_t n_threads,
+			double opsps, struct results *stats,
+			struct latency *latency, struct clo_vec *clovec)
+{
+	if (!args->json || !pb->scenario)
+		return pmembench_print_results_csv(bench, pb, args, n_threads,
+						opsps, stats, latency, clovec);
+
+	size_t len = 0;
+	json_object *jvectors;
+	json_object_object_get_ex(bench->jobj, "vectors", &jvectors);
+	double values[N_MEASURES] = {stats->avg, opsps, stats->max,
+			stats->min, stats->med, stats->std_dev,
+				(double)latency->avg, (double)latency->min,
+				(double)latency->max, latency->std_dev};
+
+	for (size_t i = 0; i < N_MEASURES; i++)
+	{
+		json_object *jvalues;
+		json_object_object_get_ex(json_object_array_get_idx(
+			jvectors, i), "values", &jvalues);
+		len = json_object_array_length(jvalues) + 1;
+		int variable_val = (clovec->variable == NULL ||
+				clovec->variable->type == CLO_TYPE_STR) ? len :
+				atoi(benchmark_clo_str(clovec->variable,
+							args, bench->args_size));
+
+		json_object *jvalue = json_object_new_object();
+		json_add(jvalue, "OX_value", variable_val);
+		json_add(jvalue, "OY_value", values[i]);
+		json_object_array_add(jvalues, jvalue);
+	}
+
+
+	/*
+	 * add extreme and middle values as a examples for comparing data
+	 * between two builds
+	 */
+	if (len == 1 || len == clovec->nargs || len % (clovec->nargs / 4) == 0)
+	{
+		json_object *jscalars;
+		json_object_object_get_ex(bench->jobj, "scalars", &jscalars);
+		json_object *oneScalar = json_object_new_object();
+
+		if (clovec->variable != NULL)
+		{
+			const char* variable_str = benchmark_clo_str(
+				clovec->variable, args, bench->args_size);
+			char *metric = (char *)calloc(1, strlen(variable_str)
+				+ strlen(clovec-> variable->opt_long) + 4);
+			sprintf(metric, "%s = %s", clovec->variable->opt_long,
+								variable_str);
+			json_add(oneScalar, "metricName", metric);
+		}
+		else
+			json_add(oneScalar, "metricName", "");
+
+		json_add(oneScalar, "value", opsps);
+		json_object_array_add(jscalars, oneScalar);
+	}
+
+	/*
+	 * at the end add benchmark parameters to object and finally add
+	 * whole object to array
+	 */
+	if (len == clovec->nargs)
+	{
+		for (size_t i = 0; i < bench->nclos; i++) {
+			if (!bench->clos[i].ignore_in_res
+					&& &bench->clos[i] != clovec->variable)
+				json_add(bench->jobj, bench->clos[i].opt_long,
+					benchmark_clo_str(&bench->clos[i], args,
+							bench->args_size));
+		}
+		json_object *jobj = json_object_new_object();
+		json_object_object_add(jobj, "result", bench->jobj);
+
+		/*
+		 * print json describing one scenario with proper separators.
+		 */
+		const char* pre = IS_FIRST_SCENARIO(pb->scenario) ? "[" : ",";
+		const char* post = IS_LAST_SCENARIO(pb->scenario) ? "]" : "";
+		printf ("%s%s%s", pre, json_object_to_json_string(jobj), post);
+		json_object_put(jobj);
+	}
+
+}
+#else
+
+/*
+ * pmembench_print_header -- print header of benchmark's results
+ */
+static void
+pmembench_print_header(struct pmembench *pb, struct benchmark *bench,
+		       struct clo_vec *clovec, struct benchmark_args *args)
+{
+	pmembench_print_header_csv(pb, bench, clovec, args);
+}
+
+/*
+ * pmembench_print_results -- print benchmark's results
+ */
+static void
+pmembench_print_results(struct benchmark *bench, struct pmembench *pb,
+			struct benchmark_args *args, size_t n_threads,
+			double opsps, struct results *stats,
+			struct latency *latency, struct clo_vec *clovec)
+{
+	pmembench_print_results_csv(bench, pb, args, n_threads, opsps, stats,
+							latency, clovec);
+}
+#endif
 
 /*
  * pmembench_parse_clos -- parse command line arguments for benchmark
@@ -944,7 +1168,7 @@ pmembench_run(struct pmembench *pb, struct benchmark *bench)
 		goto out;
 	}
 
-	pmembench_print_header(pb, bench, clovec);
+	pmembench_print_header(pb, bench, clovec, args);
 
 	size_t args_i;
 	for (args_i = 0; args_i < clovec->nargs; args_i++) {
@@ -1052,13 +1276,15 @@ pmembench_run(struct pmembench *pb, struct benchmark *bench)
 		struct latency latency;
 		pmembench_get_total_results(stats, workers_times, &total,
 					    &latency, args->repeats, n_threads);
-		pmembench_print_results(bench, args, n_threads, n_ops, &total,
-					&latency);
+		pmembench_print_results(bench, pb, args, n_threads,
+						n_threads * n_ops / total.avg,
+						&total, &latency, clovec);
 		free(stats);
 		free(workers_times);
 		stats = NULL;
 		workers_times = NULL;
 	}
+
 out:
 	if (stats)
 		free(stats);

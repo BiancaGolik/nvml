@@ -61,6 +61,7 @@ struct clo_vec {
 	size_t nargs;
 	TAILQ_HEAD(allochead, clo_vec_alloc) allocs;
 	size_t nallocs;
+	struct benchmark_clo *variable;
 };
 
 struct clo_vec *clo_vec_alloc(size_t size);

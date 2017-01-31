@@ -91,6 +91,9 @@ struct benchmark_args {
 	unsigned seed;		   /* PRNG seed */
 	unsigned repeats;	  /* number of repeats of one scenario */
 	bool help;		   /* print help for benchmark */
+#ifdef USE_JSON
+	bool json;		   /* print output in object notation */
+#endif
 	void *opts;		   /* benchmark specific arguments */
 };
 

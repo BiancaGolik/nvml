@@ -1,4 +1,4 @@
-# Copyright 2014-2016, Intel Corporation
+# Copyright 2014-2017, Intel Corporation
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -191,6 +191,7 @@ export bashcompdir := $(sysconfdir)/bash_completion.d
 check_ibv_fork_init = $(shell echo "\#include <infiniband/verbs.h> int main(void) { return ibv_fork_init(); }" |\
 	$(CC) -c $(CFLAGS) -x c -o /dev/null -libverbs - 2>/dev/null && echo y || echo n)
 
+export HAS_JSON := $(call check_package, json-c)
 export HAS_LIBFABRIC := $(call check_package, libfabric)
 
 ifeq ($(HAS_LIBFABRIC),y)
